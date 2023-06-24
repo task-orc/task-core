@@ -136,6 +136,7 @@ func (t *Task) UpdateStatus(update ExecutionData) {
 		t.Unlock()
 		return
 	}
+	t.Error = update.Error
 	if t.Output != nil && update.Error == nil {
 		err := t.Output.Validate(update.Output.Value)
 		if err != nil {
@@ -144,7 +145,6 @@ func (t *Task) UpdateStatus(update ExecutionData) {
 		}
 		t.Output.Value = update.Output.Value
 	}
-	t.Error = update.Error
 	t.HasFinished = true
 	t.Unlock()
 }

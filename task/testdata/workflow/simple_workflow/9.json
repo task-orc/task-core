@@ -78,7 +78,7 @@
         "nodes": [
           {
             "id": "task_3",
-            "type": "task",
+            "type": "not_a_task",
             "name": "Login or Register User",
             "description": "login and register the user if verification was successful",
             "execFn": "login_or_register_user",

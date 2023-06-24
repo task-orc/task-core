@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -88,11 +89,70 @@ var simpleWorkflowTestcases = []simpleWorkflowTestcase{
 	{
 		index:          8,
 		name:           "Simple Workflow Test for OTP with unsupported node",
-		description:    "This is a simple workflow test where completion doesn't happen due to unsupport node",
+		description:    "This is a simple workflow test where completion doesn't happen due to unsupported node",
 		testdataFile:   "testdata/workflow/simple_workflow/8.json",
 		initialInput:   phoneNumberInput,
 		expectedError:  task.ErrUnsupportedWorkflowNode,
 		shouldNotParse: true,
+	},
+	{
+		index:          9,
+		name:           "Simple Workflow Test for OTP with inner workflow and unsupported node",
+		description:    "This is a simple workflow test where completion doesn't happen due to unsupported node",
+		testdataFile:   "testdata/workflow/simple_workflow/9.json",
+		initialInput:   phoneNumberInput,
+		expectedError:  task.ErrUnsupportedWorkflowNode,
+		shouldNotParse: true,
+	},
+	{
+		index:          10,
+		name:           "Simple Workflow Test for OTP with parsing issues for task",
+		description:    "This is a simple workflow test where completion doesn't happen due to parsing issue",
+		testdataFile:   "testdata/workflow/simple_workflow/10.json",
+		initialInput:   phoneNumberInput,
+		expectedError:  errors.New("parsing"),
+		shouldNotParse: true,
+	},
+	{
+		index:          11,
+		name:           "Simple Workflow Test for OTP with parsing issues for workflow",
+		description:    "This is a simple workflow test where completion doesn't happen due to parsing issue",
+		testdataFile:   "testdata/workflow/simple_workflow/11.json",
+		initialInput:   phoneNumberInput,
+		expectedError:  errors.New("parsing"),
+		shouldNotParse: true,
+	},
+	{
+		index:         12,
+		name:          "Simple Workflow Test for OTP with input/output data validation issues for float",
+		description:   "This is a simple workflow test where completion doesn't happen due to input/output data validation issue associated with float",
+		testdataFile:  "testdata/workflow/simple_workflow/12.json",
+		initialInput:  phoneNumberInput,
+		expectedError: task.ErrInvalidDataType,
+	},
+	{
+		index:         13,
+		name:          "Simple Workflow Test for OTP with input/output data validation issues for int",
+		description:   "This is a simple workflow test where completion doesn't happen due to input/output data validation issue associated with int",
+		testdataFile:  "testdata/workflow/simple_workflow/13.json",
+		initialInput:  phoneNumberInput,
+		expectedError: task.ErrInvalidDataType,
+	},
+	{
+		index:         14,
+		name:          "Simple Workflow Test for OTP with input/output data validation issues for bool",
+		description:   "This is a simple workflow test where completion doesn't happen due to input/output data validation issue associated with bool",
+		testdataFile:  "testdata/workflow/simple_workflow/14.json",
+		initialInput:  phoneNumberInput,
+		expectedError: task.ErrInvalidDataType,
+	},
+	{
+		index:         15,
+		name:          "Simple Workflow Test for OTP with input/output data validation issues for string",
+		description:   "This is a simple workflow test where completion doesn't happen due to input/output data validation issue associated with string",
+		testdataFile:  "testdata/workflow/simple_workflow/15.json",
+		initialInput:  phoneNumberInput,
+		expectedError: task.ErrInvalidDataType,
 	},
 }
 
@@ -114,6 +174,9 @@ func simpleWorkflowTest(t *testing.T) {
 	// run the testcases
 	for _, testcase := range simpleWorkflowTestcases {
 		t.Run(fmt.Sprintf("%d %s", testcase.index, testcase.name), func(t *testing.T) {
+			// if testcase.index != 1 {
+			// 	t.Skip()
+			// }
 			/**
 			 * read the testdata
 			 * create the workflow
@@ -144,7 +207,7 @@ func simpleWorkflowTest(t *testing.T) {
 				return
 			}
 			if err != nil && testcase.shouldNotParse {
-				if !errors.Is(err, testcase.expectedError) {
+				if !strings.Contains(err.Error(), testcase.expectedError.Error()) {
 					t.Errorf("expected error %s while parsing the testdata file for testcase %s. got %s", testcase.expectedError.Error(), testcase.name, err.Error())
 					return
 				}
@@ -228,10 +291,6 @@ func (w *workflowExecutioner) run(wrkFlow *task.Workflow) chan struct{} {
 	go func() {
 		rpt := wrkFlow.Execute(nil)
 		for !rpt.HasFinished {
-			err := wrkFlow.Run()
-			if err != nil {
-				break
-			}
 			time.Sleep(time.Millisecond * 2)
 			rpt = wrkFlow.Status()
 		}
@@ -302,7 +361,7 @@ func (s *simpleAsyncFns) dummySendOtp(nodeID string, input *task.DataValue) task
 			},
 		},
 	}
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Millisecond * 100)
 	s.t.Logf("sent otp 1234 to %s", data["phoneNumber"])
 	go func() {
 		s.updateChan <- executionDataForWorkflow{s.wrkFlowId, dt}
@@ -316,7 +375,7 @@ func (s *simpleAsyncFns) dummySendOtpWithoutOutput(nodeID string, input *task.Da
 	dt := task.ExecutionData{
 		NodeId: nodeID,
 	}
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Millisecond * 100)
 	s.t.Logf("sent otp 1234 to %s", data["phoneNumber"])
 	go func() {
 		s.updateChan <- executionDataForWorkflow{s.wrkFlowId, dt}
@@ -333,10 +392,17 @@ func (s *simpleAsyncFns) dummyVerifyOtp(nodeID string, input *task.DataValue) ta
 			Value: map[string]interface{}{
 				"phoneNumber": data["phoneNumber"],
 				"verified":    true,
+				"dummy_array": []interface{}{
+					"1",
+					"2",
+				},
+				"dummy_object": map[string]interface{}{
+					"dummyField": "dummy_value",
+				},
 			},
 		},
 	}
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Millisecond * 100)
 	s.t.Logf("verified otp sent to %s", data["phoneNumber"])
 	go func() {
 		s.updateChan <- executionDataForWorkflow{s.wrkFlowId, dt}
@@ -350,7 +416,7 @@ func (s *simpleAsyncFns) dummyLoginOrRegisterUser(nodeID string, input *task.Dat
 	dt := task.ExecutionData{
 		NodeId: nodeID,
 	}
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Millisecond * 100)
 	s.t.Logf("successfully logged in the user %s", data["phoneNumber"])
 	go func() {
 		s.updateChan <- executionDataForWorkflow{s.wrkFlowId, dt}

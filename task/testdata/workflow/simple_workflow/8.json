@@ -55,7 +55,7 @@
                     }
                 },
                 {
-                    "name": "verified",
+                    "field": "verified",
                     "isRequired": true,
                     "type": {
                         "type": "bool"

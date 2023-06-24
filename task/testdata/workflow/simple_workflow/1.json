@@ -55,7 +55,7 @@
                     }
                 },
                 {
-                    "name": "verified",
+                    "field": "verified",
                     "isRequired": true,
                     "type": {
                         "type": "bool"
@@ -83,6 +83,36 @@
                     "isRequired": true,
                     "type": {
                         "type": "bool"
+                    }
+                },
+                {
+                    "field": "dummy_array",
+                    "isRequired": true,
+                    "type": {
+                        "type": "array",
+                        "arrayDef": {
+                            "typeDef": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                {
+                    "field": "dummy_object",
+                    "isRequired": true,
+                    "type": {
+                        "type": "object",
+                        "objectDef": {
+                            "fields": [
+                                {
+                                    "field": "dummyField",
+                                    "isRequired": true,
+                                    "type": {
+                                        "type": "string"
+                                    }
+                                }
+                            ]
+                        }
                     }
                 }
             ]

@@ -1,0 +1,31 @@
+[
+    {
+        "id": "task_1",
+        "type": "task",
+        "name": "Send Otp",
+        "description": "Sending OTP to the given phone number",
+        "execFn": "send_otp",
+        "input": {
+            "fields": [
+                {
+                    "field": "phoneNumber",
+                    "isRequired": true,
+                    "type": {
+                        "type": "int"
+                    }
+                }
+            ]
+        },
+        "output": {
+            "fields": [
+                {
+                    "field": "phoneNumber",
+                    "isRequired": true,
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            ]
+        }
+    }
+]

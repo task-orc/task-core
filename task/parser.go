@@ -55,7 +55,8 @@ type workflowDefParser struct {
 func (w *workflowDefParser) UnmarshalJSON(data []byte) error {
 	wrk := struct {
 		WorkflowDef `json:",inline"`
-		Type        string `json:"type"`
+		Nodes       []workflowNodeParser `json:"nodes"`
+		Type        string               `json:"type"`
 	}{}
 	err := json.Unmarshal(data, &wrk)
 	if err != nil {
@@ -66,6 +67,7 @@ func (w *workflowDefParser) UnmarshalJSON(data []byte) error {
 	}
 	w.WorkflowDef = wrk.WorkflowDef
 	w.Type = wrk.Type
+	w.Nodes = wrk.Nodes
 	return nil
 }
 
@@ -123,16 +125,16 @@ func (w workflowNodeParser) GetWorkflowNode(exeFns map[string]ExecutionFn) (Work
 			return nil, fmt.Errorf("expecting a workflow def while parsing. got %s", reflect.TypeOf(w.Value))
 		}
 		nodes := make([]WorkflowNode, len(wrkflwDef.Nodes))
-		for _, node := range wrkflwDef.Nodes {
+		for i, node := range wrkflwDef.Nodes {
 			wNode, err := node.GetWorkflowNode(exeFns)
 			if err != nil {
 				return nil, fmt.Errorf("error getting workflow node. %w", err)
 			}
-			nodes = append(nodes, wNode)
+			nodes[i] = wNode
 		}
 		return NewWorkflowDef(wrkflwDef.Identity, wrkflwDef.InitialInput, wrkflwDef.OnErrorWorkFlow, nodes...).CreateWorkflow(), nil
 	}
-	return nil, fmt.Errorf("expecting a workflow node def while parsing. got %s", reflect.TypeOf(w.Value))
+	return nil, fmt.Errorf("%w, got %s", ErrUnsupportedWorkflowNode, w.Type)
 }
 
 type WorkflowNodesDef []workflowNodeParser

@@ -1,0 +1,31 @@
+[
+    {
+        "id": "task_2",
+        "type": "task",
+        "name": "Verify Otp",
+        "description": "verifying OTP send to the given phone number",
+        "execFn": "verify_otp",
+        "input": {
+            "fields": [
+                {
+                    "field": "phoneNumber",
+                    "isRequired": true,
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            ]
+        },
+        "output": {
+            "fields": [
+                {
+                    "field": "verified",
+                    "isRequired": true,
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            ]
+        }
+    }
+]

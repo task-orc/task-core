@@ -1,6 +1,8 @@
 package task
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type DataTypeBasic string
 

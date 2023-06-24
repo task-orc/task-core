@@ -8,9 +8,9 @@ import (
 
 type WorkflowDef struct {
 	Identity        `json:",inline"`
-	InitialInput    *DataValue     `json:"initialInput"`
-	Nodes           []WorkflowNode `json:"-"`
-	OnErrorWorkFlow *Workflow      `json:"onErrorWorkflow"`
+	InitialInput    *DataValue `json:"initialInput"`
+	nodes           []WorkflowNode
+	OnErrorWorkFlow *Workflow `json:"onErrorWorkflow"`
 }
 
 func NewWorkflowDef(identity Identity, initialInput *DataValue, errorWorkflow *Workflow, nodes ...WorkflowNode) *WorkflowDef {
@@ -20,7 +20,7 @@ func NewWorkflowDef(identity Identity, initialInput *DataValue, errorWorkflow *W
 	return &WorkflowDef{
 		Identity:        identity,
 		InitialInput:    initialInput,
-		Nodes:           nodes,
+		nodes:           nodes,
 		OnErrorWorkFlow: errorWorkflow,
 	}
 }
@@ -29,13 +29,18 @@ func (w WorkflowDef) CreateWorkflow() *Workflow {
 	result := &Workflow{
 		Identity:         w.Identity.GenerateID("workflow_"),
 		InitialInput:     w.InitialInput,
-		Nodes:            w.Nodes,
+		Nodes:            w.nodes,
 		OnErrorWorkFlow:  w.OnErrorWorkFlow,
 		currentNodeIndex: -1,
-		nodeMap:          make(map[string]int, len(w.Nodes)),
+		nodeMap:          make(map[string]int, len(w.nodes)),
 	}
-	for i, node := range w.Nodes {
+	for i, node := range w.nodes {
 		result.nodeMap[node.GetInfo().ID] = i
+		if wfNode, ok := node.(*Workflow); ok {
+			for _, id := range wfNode.GetAllNodeIds() {
+				result.nodeMap[id] = i
+			}
+		}
 	}
 	return result
 }
@@ -49,6 +54,17 @@ type Workflow struct {
 	Error            error
 	nodeMap          map[string]int
 	sync.Mutex
+}
+
+func (w *Workflow) GetAllNodeIds() []string {
+	result := []string{}
+	for _, node := range w.Nodes {
+		result = append(result, node.GetInfo().ID)
+		if wfNode, ok := node.(*Workflow); ok {
+			result = append(result, wfNode.GetAllNodeIds()...)
+		}
+	}
+	return result
 }
 
 func (w *Workflow) Status() ExecutionReport {
@@ -69,9 +85,21 @@ func (w *Workflow) Execute(input *DataValue) ExecutionReport {
 	if w.InitialInput == nil && input != nil {
 		w.InitialInput = input
 	}
-	w.currentNodeIndex = 0
+	if w.currentNodeIndex < 0 {
+		w.currentNodeIndex = 0
+	}
 	w.Unlock()
-	go w.Run()
+	go func() {
+		rpt := w.Status()
+		for !rpt.HasFinished {
+			err := w.Run()
+			if err != nil {
+				break
+			}
+			time.Sleep(time.Millisecond * 2)
+			rpt = w.Status()
+		}
+	}()
 	return w.Status()
 }
 

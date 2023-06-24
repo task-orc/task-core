@@ -5,17 +5,15 @@
     "name": "Send Otp",
     "description": "Sending OTP to the given phone number",
     "execFn": "send_otp",
-    "input": {
-      "fields": [
-        {
-          "field": "phoneNumber",
-          "isRequired": true,
-          "type": {
-            "type": "string"
-          }
+    "input": [
+      {
+        "field": "phoneNumber",
+        "isRequired": true,
+        "type": {
+          "type": "string"
         }
-      ]
-    },
+      }
+    ],
     "output": {
       "fields": [
         {

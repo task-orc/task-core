@@ -1,5 +1,7 @@
 package task
 
+import "fmt"
+
 type DataTypeBasic string
 
 const (
@@ -141,28 +143,90 @@ func (d DataType) Copy() DataType {
 	return result
 }
 
+func (d DataType) Validate(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+
+	if d.Type.IsPrimitive() {
+		return d.ValidatePrimitive(value)
+	}
+
+	if d.Type.IsObject() {
+		return d.ValidateObject(value)
+	}
+
+	if d.Type.IsArray() {
+		return d.ValidateArray(value)
+	}
+
+	return nil
+}
+
+func (d DataType) ValidatePrimitive(value interface{}) error {
+	switch d.Type {
+	case DataTypeString:
+		_, ok := value.(string)
+		if !ok {
+			return ErrInvalidDataType
+		}
+	case DataTypeInt:
+		_, ok := value.(int)
+		if !ok {
+			return ErrInvalidDataType
+		}
+	case DataTypeFloat:
+		_, ok := value.(float64)
+		if !ok {
+			return ErrInvalidDataType
+		}
+	case DataTypeBool:
+		_, ok := value.(bool)
+		if !ok {
+			return ErrInvalidDataType
+		}
+	}
+	return nil
+}
+
+func (d DataType) ValidateObject(value interface{}) error {
+	ma, ok := value.(map[string]interface{})
+	if !ok {
+		return ErrInvalidDataType
+	}
+	if d.ObjectDef == nil {
+		return nil
+	}
+	for _, field := range d.ObjectDef.Fields {
+		if field.IsRequired {
+			if _, ok := ma[field.Field]; !ok {
+				return ErrInvalidDataType
+			}
+		}
+		if err := field.Type.Validate(ma[field.Field]); err != nil {
+			return fmt.Errorf("error validating field %s %w", field.Field, err)
+		}
+	}
+	return nil
+}
+
+func (d DataType) ValidateArray(value interface{}) error {
+	arr, ok := value.([]interface{})
+	if !ok {
+		return ErrInvalidDataType
+	}
+	if d.ArrayDef == nil {
+		return nil
+	}
+	for _, item := range arr {
+		if err := d.ArrayDef.TypeDef.Validate(item); err != nil {
+			return fmt.Errorf("error validating array item %w", err)
+		}
+	}
+	return nil
+}
+
 type DataValue struct {
 	DataType
 	Value interface{}
-}
-
-func (d DataValue) IsNull() bool {
-	if d.Value == nil {
-		return true
-	}
-
-	ma, ok := d.Value.(map[string]interface{})
-	if ok {
-		return len(ma) == 0
-	}
-	str, ok := d.Value.(string)
-	if ok {
-		return len(str) == 0
-	}
-	//TODO: Check for empty array
-	arr, ok := d.Value.([]interface{})
-	if ok {
-		return len(arr) == 0
-	}
-	return false
 }

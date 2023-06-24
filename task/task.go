@@ -1,6 +1,7 @@
 package task
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -100,26 +101,45 @@ func (t *Task) Execute(input *DataValue) ExecutionReport {
 	}
 	t.Lock()
 	t.HasStarted = true
-	//TODO: Validate input of task with task definition
 	if input == nil && t.Input != nil {
+		err := t.Input.Validate(input.Value)
+		if err != nil {
+			t.Error = fmt.Errorf("given input didn't match the expected input definition %w", err)
+			t.HasFinished = true
+		}
 		t.Input.Value = input.Value
 	}
 	t.Unlock()
+	if t.Error != nil {
+		return t.Status()
+	}
 	exeData := t.execFn(input)
 	t.Lock()
-	if exeData.Output != nil && t.Output != nil {
-		t.Output.Value = exeData.Output.Value
-	}
 	t.Error = exeData.Error
 	t.HasFinished = true
+	if exeData.Output != nil && t.Output != nil && t.Error == nil {
+		err := t.Output.Validate(exeData.Output.Value)
+		if err != nil {
+			t.Error = fmt.Errorf("given output didn't match the expected output definition %w", err)
+			t.HasFinished = true
+		}
+		t.Output.Value = exeData.Output.Value
+	}
 	t.Unlock()
 	return t.Status()
 }
 
 func (t *Task) UpdateStatus(update ExecutionData) {
+	if t.HasFinished {
+		return
+	}
 	t.Lock()
-	//TODO: Validate input of task with task definition
-	if update.Output != nil && t.Output != nil {
+	if update.Output != nil && t.Output != nil && t.Error == nil {
+		err := t.Input.Validate(update.Output.Value)
+		if err != nil {
+			t.Error = fmt.Errorf("given output didn't match the expected output definition %w", err)
+			t.HasFinished = true
+		}
 		t.Output.Value = update.Output.Value
 	}
 	t.Error = update.Error

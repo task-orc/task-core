@@ -23,7 +23,7 @@ func (d *DecisionTree) Execute(input *DataValue) ExecutionReport {
 	//TODO: Validate input of task with task definition
 	// t.Input = input
 	d.Unlock()
-	exeData := d.execFn(input)
+	exeData := d.execFn(d.ID, input)
 	d.Lock()
 	d.Output = exeData.Output
 	d.Error = exeData.Error

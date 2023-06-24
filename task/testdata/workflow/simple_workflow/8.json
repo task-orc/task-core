@@ -1,7 +1,7 @@
 [
     {
         "id": "task_1",
-        "type": "task",
+        "type": "not_a_task",
         "name": "Send Otp",
         "description": "Sending OTP to the given phone number",
         "execFn": "send_otp",

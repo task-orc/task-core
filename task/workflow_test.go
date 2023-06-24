@@ -19,12 +19,13 @@ func TestWorkflow(t *testing.T) {
 }
 
 type simpleWorkflowTestcase struct {
-	index         int
-	name          string
-	description   string
-	testdataFile  string
-	initialInput  *task.DataValue
-	expectedError error
+	index          int
+	name           string
+	description    string
+	testdataFile   string
+	initialInput   *task.DataValue
+	expectedError  error
+	shouldNotParse bool
 }
 
 var simpleWorkflowTestcases = []simpleWorkflowTestcase{
@@ -59,6 +60,39 @@ var simpleWorkflowTestcases = []simpleWorkflowTestcase{
 		testdataFile:  "testdata/workflow/simple_workflow/4.json",
 		initialInput:  phoneNumberInput,
 		expectedError: nil,
+	},
+	{
+		index:         5,
+		name:          "Simple Workflow Test for OTP with output data validation error",
+		description:   "This is a simple workflow test where completion doesn't happen due to output data validation error",
+		testdataFile:  "testdata/workflow/simple_workflow/5.json",
+		initialInput:  phoneNumberInput,
+		expectedError: task.ErrInvalidDataType,
+	},
+	{
+		index:         6,
+		name:          "Simple Workflow Test for OTP with missing output",
+		description:   "This is a simple workflow test where completion doesn't happen due to missing output",
+		testdataFile:  "testdata/workflow/simple_workflow/6.json",
+		initialInput:  phoneNumberInput,
+		expectedError: task.ErrExpectingOutput,
+	},
+	{
+		index:         7,
+		name:          "Simple Workflow Test for OTP with missing input",
+		description:   "This is a simple workflow test where completion doesn't happen due to missing input",
+		testdataFile:  "testdata/workflow/simple_workflow/7.json",
+		initialInput:  phoneNumberInput,
+		expectedError: task.ErrExpectingInput,
+	},
+	{
+		index:          8,
+		name:           "Simple Workflow Test for OTP with unsupported node",
+		description:    "This is a simple workflow test where completion doesn't happen due to unsupport node",
+		testdataFile:   "testdata/workflow/simple_workflow/8.json",
+		initialInput:   phoneNumberInput,
+		expectedError:  task.ErrUnsupportedWorkflowNode,
+		shouldNotParse: true,
 	},
 }
 
@@ -101,8 +135,19 @@ func simpleWorkflowTest(t *testing.T) {
 			parser := task.NewJsonParser[task.WorkflowNodesDef](f)
 			siFns := newSimpleAsyncFns(t, ch)
 			wrkflwNodes, err := task.NewWorkflowNodeDefs(parser, siFns.getSimpleAsyncFunctions())
-			if err != nil {
+			if err != nil && !testcase.shouldNotParse {
 				t.Errorf("error parsing the testdata file for testcase %s. %s", testcase.name, err)
+				return
+			}
+			if err == nil && testcase.shouldNotParse {
+				t.Errorf("expected error while parsing the testdata file for testcase %s. got nil", testcase.name)
+				return
+			}
+			if err != nil && testcase.shouldNotParse {
+				if !errors.Is(err, testcase.expectedError) {
+					t.Errorf("expected error %s while parsing the testdata file for testcase %s. got %s", testcase.expectedError.Error(), testcase.name, err.Error())
+					return
+				}
 				return
 			}
 			//finally create the workflow
@@ -156,19 +201,19 @@ func newWorkflowExecutioner() *workflowExecutioner {
 	}
 }
 
-func (w *workflowExecutioner) listen(stop <-chan bool) chan<- task.ExecutionData {
-	ch := make(chan task.ExecutionData)
+func (w *workflowExecutioner) listen(stop <-chan bool) chan<- executionDataForWorkflow {
+	ch := make(chan executionDataForWorkflow)
 	go func() {
 		for {
 			select {
 			case <-stop:
 				return
 			case data := <-ch:
-				wrkFlow, ok := w.wrkFlows[data.NodeId]
+				wrkFlow, ok := w.wrkFlows[data.workflowId]
 				if !ok {
 					continue
 				}
-				wrkFlow.UpdateStatus(data)
+				wrkFlow.UpdateStatus(data.execData)
 			}
 		}
 	}()
@@ -177,8 +222,8 @@ func (w *workflowExecutioner) listen(stop <-chan bool) chan<- task.ExecutionData
 
 func (w *workflowExecutioner) run(wrkFlow *task.Workflow) chan struct{} {
 	w.Lock()
-	defer w.Unlock()
 	w.wrkFlows[wrkFlow.ID] = wrkFlow
+	w.Unlock()
 	ch := make(chan struct{})
 	go func() {
 		rpt := wrkFlow.Execute(nil)
@@ -187,6 +232,7 @@ func (w *workflowExecutioner) run(wrkFlow *task.Workflow) chan struct{} {
 			if err != nil {
 				break
 			}
+			time.Sleep(time.Millisecond * 2)
 			rpt = wrkFlow.Status()
 		}
 		ch <- struct{}{}
@@ -216,12 +262,17 @@ var phoneNumberInput = &task.DataValue{
 
 type simpleAsyncFns struct {
 	wrkFlowId  string
-	updateChan chan<- task.ExecutionData
+	updateChan chan<- executionDataForWorkflow
 	t          *testing.T
 	sync.Mutex
 }
 
-func newSimpleAsyncFns(t *testing.T, ch chan<- task.ExecutionData) *simpleAsyncFns {
+type executionDataForWorkflow struct {
+	workflowId string
+	execData   task.ExecutionData
+}
+
+func newSimpleAsyncFns(t *testing.T, ch chan<- executionDataForWorkflow) *simpleAsyncFns {
 	return &simpleAsyncFns{updateChan: ch, t: t}
 }
 
@@ -233,36 +284,51 @@ func (s *simpleAsyncFns) updateWorkflowId(wrkFlowId string) {
 
 func (s *simpleAsyncFns) getSimpleAsyncFunctions() map[string]task.ExecutionFn {
 	return map[string]task.ExecutionFn{
-		"send_otp":               task.ExecutionFn(s.dummySendOtp),
-		"verify_otp":             task.ExecutionFn(s.dummyVerifyOtp),
-		"login_or_register_user": task.ExecutionFn(s.dummyLoginOrRegisterUser),
+		"send_otp":                task.ExecutionFn(s.dummySendOtp),
+		"send_otp_without_output": task.ExecutionFn(s.dummySendOtpWithoutOutput),
+		"verify_otp":              task.ExecutionFn(s.dummyVerifyOtp),
+		"login_or_register_user":  task.ExecutionFn(s.dummyLoginOrRegisterUser),
 	}
 }
 
-func (s *simpleAsyncFns) dummySendOtp(input *task.DataValue) task.ExecutionData {
+func (s *simpleAsyncFns) dummySendOtp(nodeID string, input *task.DataValue) task.ExecutionData {
 	data := input.Value.(map[string]interface{})
 	s.t.Logf("sending otp to %s", data["phoneNumber"])
 	dt := task.ExecutionData{
-		NodeId: s.wrkFlowId,
+		NodeId: nodeID,
 		Output: &task.DataValue{
 			Value: map[string]interface{}{
 				"phoneNumber": data["phoneNumber"],
 			},
 		},
 	}
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 1)
 	s.t.Logf("sent otp 1234 to %s", data["phoneNumber"])
 	go func() {
-		s.updateChan <- dt
+		s.updateChan <- executionDataForWorkflow{s.wrkFlowId, dt}
 	}()
 	return dt
 }
 
-func (s *simpleAsyncFns) dummyVerifyOtp(input *task.DataValue) task.ExecutionData {
+func (s *simpleAsyncFns) dummySendOtpWithoutOutput(nodeID string, input *task.DataValue) task.ExecutionData {
+	data := input.Value.(map[string]interface{})
+	s.t.Logf("sending otp to %s", data["phoneNumber"])
+	dt := task.ExecutionData{
+		NodeId: nodeID,
+	}
+	time.Sleep(time.Second * 1)
+	s.t.Logf("sent otp 1234 to %s", data["phoneNumber"])
+	go func() {
+		s.updateChan <- executionDataForWorkflow{s.wrkFlowId, dt}
+	}()
+	return dt
+}
+
+func (s *simpleAsyncFns) dummyVerifyOtp(nodeID string, input *task.DataValue) task.ExecutionData {
 	data := input.Value.(map[string]interface{})
 	s.t.Logf("verifying otp send to %s", data["phoneNumber"])
 	dt := task.ExecutionData{
-		NodeId: s.wrkFlowId,
+		NodeId: nodeID,
 		Output: &task.DataValue{
 			Value: map[string]interface{}{
 				"phoneNumber": data["phoneNumber"],
@@ -270,24 +336,24 @@ func (s *simpleAsyncFns) dummyVerifyOtp(input *task.DataValue) task.ExecutionDat
 			},
 		},
 	}
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 1)
 	s.t.Logf("verified otp sent to %s", data["phoneNumber"])
 	go func() {
-		s.updateChan <- dt
+		s.updateChan <- executionDataForWorkflow{s.wrkFlowId, dt}
 	}()
 	return dt
 }
 
-func (s *simpleAsyncFns) dummyLoginOrRegisterUser(input *task.DataValue) task.ExecutionData {
+func (s *simpleAsyncFns) dummyLoginOrRegisterUser(nodeID string, input *task.DataValue) task.ExecutionData {
 	data := input.Value.(map[string]interface{})
 	s.t.Logf("logging in the user to %s", data["phoneNumber"])
 	dt := task.ExecutionData{
-		NodeId: s.wrkFlowId,
+		NodeId: nodeID,
 	}
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 1)
 	s.t.Logf("successfully logged in the user %s", data["phoneNumber"])
 	go func() {
-		s.updateChan <- dt
+		s.updateChan <- executionDataForWorkflow{s.wrkFlowId, dt}
 	}()
 	return dt
 }

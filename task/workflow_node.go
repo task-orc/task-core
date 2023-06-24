@@ -24,4 +24,4 @@ type ExecutionReport struct {
 	ExecutionData
 }
 
-type ExecutionFn func(input *DataValue) ExecutionData
+type ExecutionFn func(nodeId string, input *DataValue) ExecutionData

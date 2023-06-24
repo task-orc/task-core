@@ -3,6 +3,7 @@ package task
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 type WorkflowDef struct {
@@ -89,6 +90,7 @@ func (w *Workflow) Run() error {
 			w.Lock()
 			w.currentNodeIndex++
 			w.Unlock()
+			time.Sleep(time.Millisecond * 10)
 			continue
 		} else if status.Error != nil {
 			// Task has failed. Return error
@@ -103,6 +105,7 @@ func (w *Workflow) Run() error {
 			// Task is not started. Have to start that now
 			go node.Execute(w.GetLastNodeOutput())
 		} else if status.HasStarted && !status.HasFinished {
+			time.Sleep(time.Millisecond * 10)
 			// Task is in progress
 			return nil
 		}

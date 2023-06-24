@@ -102,7 +102,7 @@ func (t *Task) Execute(input *DataValue) ExecutionReport {
 	t.Lock()
 	t.HasStarted = true
 	if t.Input != nil && (input == nil || input.Value == nil) {
-		t.Error = fmt.Errorf("expecting an input")
+		t.Error = ErrExpectingInput
 		t.HasFinished = true
 		t.Unlock()
 		return t.Status()
@@ -110,7 +110,7 @@ func (t *Task) Execute(input *DataValue) ExecutionReport {
 	if t.Input != nil {
 		err := t.Input.Validate(input.Value)
 		if err != nil {
-			t.Error = fmt.Errorf("given input didn't match the expected input definition %w", err)
+			t.Error = fmt.Errorf("given input didn't match the expected input definition. %w", err)
 			t.HasFinished = true
 		}
 		t.Input.Value = input.Value
@@ -119,22 +119,9 @@ func (t *Task) Execute(input *DataValue) ExecutionReport {
 	if t.Error != nil {
 		return t.Status()
 	}
-	if t.execFn == nil {
-		return t.Status()
+	if t.execFn != nil {
+		t.execFn(t.ID, input)
 	}
-	exeData := t.execFn(input)
-	t.Lock()
-	t.Error = exeData.Error
-	t.HasFinished = true
-	if exeData.Output != nil && t.Output != nil && t.Error == nil {
-		err := t.Output.Validate(exeData.Output.Value)
-		if err != nil {
-			t.Error = fmt.Errorf("given output didn't match the expected output definition %w", err)
-			t.HasFinished = true
-		}
-		t.Output.Value = exeData.Output.Value
-	}
-	t.Unlock()
 	return t.Status()
 }
 
@@ -144,15 +131,15 @@ func (t *Task) UpdateStatus(update ExecutionData) {
 	}
 	t.Lock()
 	if t.Output != nil && update.Error == nil && (update.Output == nil || update.Output.Value == nil) {
-		t.Error = fmt.Errorf("expecting an output")
+		t.Error = ErrExpectingOutput
 		t.HasFinished = true
 		t.Unlock()
 		return
 	}
 	if t.Output != nil && update.Error == nil {
-		err := t.Input.Validate(update.Output.Value)
+		err := t.Output.Validate(update.Output.Value)
 		if err != nil {
-			t.Error = fmt.Errorf("given output didn't match the expected output definition %w", err)
+			t.Error = fmt.Errorf("given output didn't match the expected output definition. %w", err)
 			t.HasFinished = true
 		}
 		t.Output.Value = update.Output.Value

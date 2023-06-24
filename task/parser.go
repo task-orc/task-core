@@ -102,7 +102,7 @@ func (w *workflowNodeParser) UnmarshalJSON(data []byte) error {
 		w.Type = workflowNodeTypeWorkflow
 		return nil
 	}
-	return fmt.Errorf("expected workflow node type, got %s", wrkflNode.Type)
+	return fmt.Errorf("%w, got %s", ErrUnsupportedWorkflowNode, wrkflNode.Type)
 }
 
 func (w workflowNodeParser) GetWorkflowNode(exeFns map[string]ExecutionFn) (WorkflowNode, error) {

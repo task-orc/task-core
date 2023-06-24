@@ -4,7 +4,7 @@
         "type": "task",
         "name": "Send Otp",
         "description": "Sending OTP to the given phone number",
-        "execFn": "send_otp",
+        "execFn": "send_otp_without_output",
         "input": {
             "fields": [
                 {
@@ -37,7 +37,7 @@
         "input": {
             "fields": [
                 {
-                    "field": "phoneNumber",
+                    "field": "otp",
                     "isRequired": true,
                     "type": {
                         "type": "string"
@@ -55,7 +55,7 @@
                     }
                 },
                 {
-                    "name": "verified",
+                    "field": "verified",
                     "isRequired": true,
                     "type": {
                         "type": "bool"
@@ -65,6 +65,7 @@
         }
     },
     {
+        "id": "task_3",
         "type": "task",
         "name": "Login or Register User",
         "description": "login and register the user if verification was successful",

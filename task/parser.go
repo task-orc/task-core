@@ -10,6 +10,7 @@ type ParseOutput interface {
 	WorkflowNodesDef
 }
 
+// Parser helps parsing the data from different sources to the expected ParseOutputs
 type Parser[o ParseOutput] interface {
 	Parse() (*o, error)
 }
@@ -17,16 +18,21 @@ type Parser[o ParseOutput] interface {
 type workflowNodeType string
 
 const (
+	// Supported concrete parse output types
+	// The orginal parse output is an interface, but we need to know the concrete type to unmarshal the json
 	workflowNodeTypeTask     workflowNodeType = "task"
 	workflowNodeTypeWorkflow workflowNodeType = "workflow"
 )
 
+// Concrete implementation for parsing task defnition
+// task is created from the instance of the task def
 type taskDefParserWithoutExeFn struct {
 	TaskDef `json:",inline"`
 	Type    string `json:"type"`
 	ExecFn  string `json:"execFn"`
 }
 
+// UnmarshalJSON is a custom unmarshaler for taskDefParserWithoutExeFn
 func (t *taskDefParserWithoutExeFn) UnmarshalJSON(data []byte) error {
 	tsk := struct {
 		TaskDef `json:",inline"`
@@ -46,6 +52,8 @@ func (t *taskDefParserWithoutExeFn) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Concrete implementation for parsing worflow defnition
+// workflow are created from the instance of the workflow def
 type workflowDefParser struct {
 	WorkflowDef `json:",inline"`
 	Nodes       []workflowNodeParser `json:"nodes"`
@@ -71,12 +79,17 @@ func (w *workflowDefParser) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// workflowNodeParser is a wrapper for workflowNode
 type workflowNodeParser struct {
 	Value interface{}      `json:",inline"`
 	Type  workflowNodeType `json:"type"`
 }
 
+// UnmarshalJSON is a custom unmarshaler for workflowNodeParser
+// underlying type is determined by the type field and the json is unmarshaled accordingly with its concreate implementation
+// support for any new workflow node type should be added here
 func (w *workflowNodeParser) UnmarshalJSON(data []byte) error {
+	// ew first unmarshal tom understand the type
 	wrkflNode := struct {
 		Type workflowNodeType `json:"type"`
 	}{}
@@ -85,6 +98,7 @@ func (w *workflowNodeParser) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if wrkflNode.Type == workflowNodeTypeTask {
+		// then we unmarshal to the concrete type - task
 		ts := &taskDefParserWithoutExeFn{}
 		err := ts.UnmarshalJSON(data)
 		if err != nil {
@@ -95,6 +109,7 @@ func (w *workflowNodeParser) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	if wrkflNode.Type == workflowNodeTypeWorkflow {
+		// then we unmarshal to the concrete type - workflow
 		wf := &workflowDefParser{}
 		err := wf.UnmarshalJSON(data)
 		if err != nil {
@@ -107,8 +122,14 @@ func (w *workflowNodeParser) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("%w, got %s", ErrUnsupportedWorkflowNode, wrkflNode.Type)
 }
 
+// GetWorkflowNode creates a workflow node from the workflowNodeParser
+// It takes care of the underlying type and creates the workflow node accordingly
+// It also takes care of the nested workflow nodes too
+// Any new workflow node type should be added here
 func (w workflowNodeParser) GetWorkflowNode(exeFns map[string]ExecutionFn) (WorkflowNode, error) {
+	// based on the type we create the workflow node
 	if w.Type == workflowNodeTypeTask {
+		// since task is a simple workflow node, we can create it directly
 		taskDef, ok := w.Value.(*taskDefParserWithoutExeFn)
 		if !ok {
 			return nil, fmt.Errorf("expecting a task def while parsing. got %s", reflect.TypeOf(w.Value))
@@ -120,12 +141,15 @@ func (w workflowNodeParser) GetWorkflowNode(exeFns map[string]ExecutionFn) (Work
 		}
 		return NewTaskDef(taskDef.Identity, taskDef.Input, taskDef.Output, exeFn).CreateTask(), nil
 	} else if w.Type == workflowNodeTypeWorkflow {
+		// since workflow is a complex workflow node, we need to create it recursively
+		// there could be nested workflow nodes too
 		wrkflwDef, ok := w.Value.(*workflowDefParser)
 		if !ok {
 			return nil, fmt.Errorf("expecting a workflow def while parsing. got %s", reflect.TypeOf(w.Value))
 		}
 		nodes := make([]WorkflowNode, len(wrkflwDef.Nodes))
 		for i, node := range wrkflwDef.Nodes {
+			// a recursive call to create the workflow node to handle nested workflow nodes
 			wNode, err := node.GetWorkflowNode(exeFns)
 			if err != nil {
 				return nil, fmt.Errorf("error getting workflow node. %w", err)
@@ -139,6 +163,7 @@ func (w workflowNodeParser) GetWorkflowNode(exeFns map[string]ExecutionFn) (Work
 
 type WorkflowNodesDef []workflowNodeParser
 
+// NewWorkflowNodeDefs creates a slice of workflow nodes from the parser
 func NewWorkflowNodeDefs[P Parser[WorkflowNodesDef]](parser P, exeFns map[string]ExecutionFn) ([]WorkflowNode, error) {
 	workflowNodeDefsP, err := parser.Parse()
 	if err != nil {
@@ -150,6 +175,7 @@ func NewWorkflowNodeDefs[P Parser[WorkflowNodesDef]](parser P, exeFns map[string
 	workfowNodeDefVs := *workflowNodeDefsP
 	result := make([]WorkflowNode, len(workfowNodeDefVs))
 	for i, workfowNodeDef := range workfowNodeDefVs {
+		// we get the nodes from the node defnitions here
 		workflowNode, err := workfowNodeDef.GetWorkflowNode(exeFns)
 		if err != nil {
 			return nil, fmt.Errorf("error getting workflow node at index %d. %w", i, err)

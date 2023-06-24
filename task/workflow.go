@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+// WorkflowDef is a struct that represents the workflow definition
+// A workflow is created as an instance of the workflow def
 type WorkflowDef struct {
 	Identity        `json:",inline"`
 	InitialInput    *DataValue `json:"initialInput"`
@@ -25,6 +27,7 @@ func NewWorkflowDef(identity Identity, initialInput *DataValue, errorWorkflow *W
 	}
 }
 
+// CreateWorkflow creates a new workflow instance from the workflow definition
 func (w WorkflowDef) CreateWorkflow() *Workflow {
 	result := &Workflow{
 		Identity:         w.Identity.GenerateID("workflow_"),
@@ -37,6 +40,24 @@ func (w WorkflowDef) CreateWorkflow() *Workflow {
 	for i, node := range w.nodes {
 		result.nodeMap[node.GetInfo().ID] = i
 		if wfNode, ok := node.(*Workflow); ok {
+			// if the node is a workflow, we need to add all the node ids corresponding to the workflow's nodes
+			// to be mapped to the index of the workflow node
+			// so when status, we can traverse back to the original node using this map, reagrdless of which inner workflow node it is situated at
+			//Eg:
+			//	workflow1
+			//		workflow2
+			//			task1
+			//			task2
+			//		workflow3
+			//			task3
+			// with node map the data will look like the below
+			//	workflow1 { "workflow2": 0, "workflow3": 1, "task1": 0, "task2": 0, "task3": 1 }
+			//		workflow2 { "task1": 0, "task2": 1 }
+			//			task1
+			//			task2
+			//		workflow3 { "task3": 0 }
+			//			task3
+
 			for _, id := range wfNode.GetAllNodeIds() {
 				result.nodeMap[id] = i
 			}
@@ -53,14 +74,17 @@ type Workflow struct {
 	currentNodeIndex int
 	Error            error
 	nodeMap          map[string]int
+	isRunning        bool
 	sync.Mutex
 }
 
 func (w *Workflow) GetAllNodeIds() []string {
 	result := []string{}
 	for _, node := range w.Nodes {
+		// we add all the node ids to the result
 		result = append(result, node.GetInfo().ID)
 		if wfNode, ok := node.(*Workflow); ok {
+			// if it is a workflow, we call the node ids recursively
 			result = append(result, wfNode.GetAllNodeIds()...)
 		}
 	}
@@ -80,7 +104,14 @@ func (w *Workflow) Status() ExecutionReport {
 	}
 }
 
+// Execute executes the workflow
+// It is meant to be called only once
+// It will return the status of the workflow, if it has already running
+// This also enable the store the state of the workflow and resume it later
 func (w *Workflow) Execute(input *DataValue) ExecutionReport {
+	if w.isRunning {
+		return w.Status()
+	}
 	w.Lock()
 	if w.InitialInput == nil && input != nil {
 		w.InitialInput = input
@@ -90,6 +121,7 @@ func (w *Workflow) Execute(input *DataValue) ExecutionReport {
 	}
 	w.Unlock()
 	go func() {
+		// we keep listening to the status of the workflow
 		rpt := w.Status()
 		for !rpt.HasFinished {
 			err := w.Run()
@@ -110,6 +142,9 @@ func (w *Workflow) UpdateStatus(update ExecutionData) {
 }
 
 func (w *Workflow) Run() error {
+	w.Lock()
+	w.isRunning = true
+	w.Unlock()
 	for w.ShouldMoveForward() {
 		node := w.Nodes[w.currentNodeIndex]
 		status := node.Status()
@@ -130,7 +165,7 @@ func (w *Workflow) Run() error {
 			w.Unlock()
 			return w.Error
 		} else if !status.HasStarted {
-			// Task is not started. Have to start that now
+			// If the node is not yet started. Have to start that now
 			go node.Execute(w.GetLastNodeOutput())
 		} else if status.HasStarted && !status.HasFinished {
 			time.Sleep(time.Millisecond * 10)

@@ -84,6 +84,7 @@ type DataObjectDef struct {
 	Fields []DataField `json:"fields"`
 }
 
+// CreateDataValue creates a DataValue object with the DataObjectDef with nil value
 func (d DataObjectDef) CreateDataValue() *DataValue {
 	result := DataValue{
 		DataType: DataType{
@@ -95,6 +96,7 @@ func (d DataObjectDef) CreateDataValue() *DataValue {
 	return &result
 }
 
+// Copy will do a deep copy of the DataObjectDef
 func (d DataObjectDef) Copy() *DataObjectDef {
 	result := &DataObjectDef{}
 	for _, field := range d.Fields {
@@ -109,6 +111,7 @@ type DataField struct {
 	Type       DataType `json:"type"`
 }
 
+// Copy will do a deep copy of the DataField
 func (d DataField) Copy() DataField {
 	return DataField{
 		Field:      d.Field,
@@ -121,6 +124,7 @@ type DataArrayDef struct {
 	TypeDef DataType `json:"typeDef"`
 }
 
+// Copy will do a deep copy of the DataArrayDef
 func (d DataArrayDef) Copy() *DataArrayDef {
 	return &DataArrayDef{
 		TypeDef: d.TypeDef.Copy(),
@@ -133,6 +137,7 @@ type DataType struct {
 	ObjectDef *DataObjectDef `json:"objectDef"`
 }
 
+// Copy will do a deep copy of the DataType
 func (d DataType) Copy() DataType {
 	result := DataType{
 		Type: d.Type,
@@ -146,6 +151,7 @@ func (d DataType) Copy() DataType {
 	return result
 }
 
+// Validate validates the value against the DataType
 func (d DataType) Validate(value interface{}) error {
 	if value == nil {
 		return nil
@@ -214,6 +220,7 @@ func (d DataType) ValidateObject(value interface{}) error {
 }
 
 func (d DataType) ValidateArray(value interface{}) error {
+	// It is very important that the array data is passed as interface array
 	arr, ok := value.([]interface{})
 	if !ok {
 		return ErrInvalidDataType

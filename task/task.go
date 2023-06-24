@@ -6,6 +6,7 @@ import (
 )
 
 // TaskDef is a struct that represents the task definition
+// A task is created as an instance of the task def
 // Eg: {"id": "task1", "name": "Otp Verification", "description": "Verify the otp", "input": { "otp": "string" }, "output": { "isVerified": "bool" } }
 // Def would be:
 //
@@ -95,6 +96,14 @@ func (t *Task) Status() ExecutionReport {
 	}
 }
 
+// Execute executes the task
+// It will only run once.
+// if the task has already begin it will return the status of the task
+// It takes care of the input validation
+// It stores the input too and marks the task as started
+// If there are any errors, it stores the error and marks the task as finished
+// If any execution functions are provided, it will execute them
+// Else it depends on the external system to update the status of the task
 func (t *Task) Execute(input *DataValue) ExecutionReport {
 	if t.HasStarted {
 		return t.Status()
@@ -125,6 +134,10 @@ func (t *Task) Execute(input *DataValue) ExecutionReport {
 	return t.Status()
 }
 
+// UpdateStatus updates the status of the task
+// It takes care of the output validation
+// It stores the output too and marks the task as finished
+// If there are any errors, it stores the error and marks the task as finished
 func (t *Task) UpdateStatus(update ExecutionData) {
 	if t.HasFinished {
 		return

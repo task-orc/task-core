@@ -77,7 +77,7 @@ func (d DataTypeBasic) IsArray() bool {
 //		},
 //	}
 type DataObjectDef struct {
-	Fields []DataField
+	Fields []DataField `json:"fields"`
 }
 
 func (d DataObjectDef) CreateDataValue() *DataValue {
@@ -100,8 +100,9 @@ func (d DataObjectDef) Copy() *DataObjectDef {
 }
 
 type DataField struct {
-	Field string
-	Type  DataType
+	Field      string   `json:"field"`
+	IsRequired bool     `json:"isRequired"`
+	Type       DataType `json:"type"`
 }
 
 func (d DataField) Copy() DataField {
@@ -112,7 +113,7 @@ func (d DataField) Copy() DataField {
 }
 
 type DataArrayDef struct {
-	TypeDef DataType
+	TypeDef DataType `json:"typeDef"`
 }
 
 func (d DataArrayDef) Copy() *DataArrayDef {
@@ -122,9 +123,9 @@ func (d DataArrayDef) Copy() *DataArrayDef {
 }
 
 type DataType struct {
-	Type      DataTypeBasic
-	ArrayDef  *DataArrayDef
-	ObjectDef *DataObjectDef
+	Type      DataTypeBasic  `json:"type"`
+	ArrayDef  *DataArrayDef  `json:"arrayDef"`
+	ObjectDef *DataObjectDef `json:"objectDef"`
 }
 
 func (d DataType) Copy() DataType {

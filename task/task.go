@@ -1,6 +1,8 @@
 package task
 
-import "sync"
+import (
+	"sync"
+)
 
 // TaskDef is a struct that represents the task definition
 // Eg: {"id": "task1", "name": "Otp Verification", "description": "Verify the otp", "input": { "otp": "string" }, "output": { "isVerified": "bool" } }
@@ -32,10 +34,24 @@ import "sync"
 //		},
 //	}
 type TaskDef struct {
-	Identity
-	ExecFn func(input *DataValue) ExecutionData
-	Input  *DataObjectDef
-	Output *DataObjectDef
+	Identity `json:",inline"`
+	execFn   ExecutionFn    `json:"-"`
+	Input    *DataObjectDef `json:"input"`
+	Output   *DataObjectDef `json:"output"`
+}
+
+func NewTaskDef(identity Identity, input, output *DataObjectDef, execFn ExecutionFn) TaskDef {
+	taskDef := TaskDef{
+		Identity: identity,
+		Input:    input,
+		Output:   output,
+		execFn:   execFn,
+	}
+	if len(identity.ID) == 0 {
+		taskDef.Identity = taskDef.GenerateID("taskDef_")
+	}
+
+	return taskDef
 }
 
 func (t TaskDef) CreateTask() *Task {
@@ -43,6 +59,7 @@ func (t TaskDef) CreateTask() *Task {
 		Identity:    t.Identity.GenerateID("task_"),
 		HasStarted:  false,
 		HasFinished: false,
+		execFn:      t.execFn,
 	}
 	if t.Input != nil {
 		result.Input = t.Input.CreateDataValue()
@@ -57,39 +74,55 @@ type Task struct {
 	Identity
 	HasStarted  bool
 	HasFinished bool
-	ExecFn      func(input *DataValue) ExecutionData
+	execFn      ExecutionFn
 	Input       *DataValue
 	Output      *DataValue
 	Error       error
 	sync.Mutex
 }
 
-func (t *Task) Status() ExecutionData {
-	return ExecutionData{
+func (t *Task) Status() ExecutionReport {
+	return ExecutionReport{
 		HasStarted:  t.HasStarted,
 		HasFinished: t.HasFinished,
 		Input:       t.Input,
-		Output:      t.Output,
-		Error:       t.Error,
-		NodeId:      t.ID,
+		ExecutionData: ExecutionData{
+			Output: t.Output,
+			Error:  t.Error,
+			NodeId: t.ID,
+		},
 	}
 }
 
-func (t *Task) Execute(input *DataValue) ExecutionData {
+func (t *Task) Execute(input *DataValue) ExecutionReport {
 	if t.HasStarted {
 		return t.Status()
 	}
 	t.Lock()
 	t.HasStarted = true
 	//TODO: Validate input of task with task definition
-	// t.Input = input
-	// t.Output = t.Output
+	if input == nil && t.Input != nil {
+		t.Input.Value = input.Value
+	}
 	t.Unlock()
-	exeData := t.ExecFn(input)
+	exeData := t.execFn(input)
 	t.Lock()
-	t.Output = exeData.Output
+	if exeData.Output != nil && t.Output != nil {
+		t.Output.Value = exeData.Output.Value
+	}
 	t.Error = exeData.Error
-	t.HasFinished = exeData.HasFinished
+	t.HasFinished = true
 	t.Unlock()
 	return t.Status()
+}
+
+func (t *Task) UpdateStatus(update ExecutionData) {
+	t.Lock()
+	//TODO: Validate input of task with task definition
+	if update.Output != nil && t.Output != nil {
+		t.Output.Value = update.Output.Value
+	}
+	t.Error = update.Error
+	t.HasFinished = true
+	t.Unlock()
 }

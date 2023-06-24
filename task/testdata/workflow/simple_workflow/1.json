@@ -1,0 +1,89 @@
+[
+    {
+        "id": "task_1",
+        "name": "Send Otp",
+        "description": "Sending OTP to the given phone number",
+        "execFn": "send_otp",
+        "input": {
+            "fields": [
+                {
+                    "name": "phoneNumber",
+                    "isRequired": true,
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            ]
+        },
+        "output": {
+            "fields": [
+                {
+                    "name": "phoneNumber",
+                    "isRequired": true,
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            ]
+        }
+    },
+    {
+        "id": "task_2",
+        "name": "Verify Otp",
+        "description": "verifying OTP send to the given phone number",
+        "execFn": "verify_otp",
+        "input": {
+            "fields": [
+                {
+                    "name": "phoneNumber",
+                    "isRequired": true,
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            ]
+        },
+        "output": {
+            "fields": [
+                {
+                    "name": "phoneNumber",
+                    "isRequired": true,
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                {
+                    "name": "verified",
+                    "isRequired": true,
+                    "type": {
+                        "type": "bool"
+                    }
+                }
+            ]
+        }
+    },
+    {
+        "id": "task_3",
+        "name": "Login or Register User",
+        "description": "login and register the user if verification was successful",
+        "execFn": "login_or_register_user",
+        "input": {
+            "fields": [
+                {
+                    "name": "phoneNumber",
+                    "isRequired": true,
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                {
+                    "name": "verified",
+                    "isRequired": true,
+                    "type": {
+                        "type": "bool"
+                    }
+                }
+            ]
+        }
+    }
+]

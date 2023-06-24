@@ -1,0 +1,37 @@
+name: test-task-core
+
+on:
+  push:
+    branches:
+      - main
+  # PRs opened/reopened/synchronised/labeled to develop branch
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+
+concurrency:
+  group: test-task-core-${{ github.ref }}-1
+  cancel-in-progress: true
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20.1'
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test
+        run: go test -v ./...

@@ -3,9 +3,9 @@ package task
 import "github.com/google/uuid"
 
 type Identity struct {
-	ID          string
-	Name        string
-	Description string
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func (i Identity) GetInfo() Identity {

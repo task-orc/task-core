@@ -9,36 +9,56 @@ type Workflow struct {
 	Identity
 	InitialInput     *DataValue
 	Nodes            []WorkflowNode
+	OnErrorWorkFlow  *Workflow
 	CurrentNodeIndex int
 	Error            error
+	nodeMap          map[string]int
 	sync.Mutex
 }
 
-func NewWorkflow(identity Identity, nodes ...WorkflowNode) *Workflow {
+func NewWorkflow(identity Identity, errorWorkflow *Workflow, nodes ...WorkflowNode) *Workflow {
+	workflowMap := make(map[string]int, len(nodes))
+	for i, node := range nodes {
+		workflowMap[node.GetInfo().ID] = i
+	}
+	if len(identity.ID) == 0 {
+		identity = identity.GenerateID("workflow_")
+	}
 	return &Workflow{
 		Identity:         identity,
 		Nodes:            nodes,
+		OnErrorWorkFlow:  errorWorkflow,
 		CurrentNodeIndex: -1,
+		nodeMap:          workflowMap,
 	}
 }
 
-func (w *Workflow) Status() ExecutionData {
-	return ExecutionData{
+func (w *Workflow) Status() ExecutionReport {
+	return ExecutionReport{
 		HasStarted:  w.CurrentNodeIndex >= 0,
 		HasFinished: w.CurrentNodeIndex >= len(w.Nodes),
 		Input:       w.InitialInput,
-		Output:      w.GetLastNodeOutput(),
-		Error:       w.Error,
+		ExecutionData: ExecutionData{
+			Output: w.GetLastNodeOutput(),
+			Error:  w.Error,
+			NodeId: w.ID,
+		},
 	}
 }
 
-func (w *Workflow) Execute(input *DataValue) ExecutionData {
+func (w *Workflow) Execute(input *DataValue) ExecutionReport {
 	w.Lock()
 	w.InitialInput = input
 	w.CurrentNodeIndex = 0
 	w.Unlock()
 	go w.Run()
 	return w.Status()
+}
+
+func (w *Workflow) UpdateStatus(update ExecutionData) {
+	if index, ok := w.nodeMap[update.NodeId]; ok {
+		w.Nodes[index].UpdateStatus(update)
+	}
 }
 
 func (w *Workflow) Run() error {
@@ -55,6 +75,9 @@ func (w *Workflow) Run() error {
 			// Task has failed. Return error
 			w.Lock()
 			w.Error = fmt.Errorf("error in node execution %s: %w", node.GetInfo().ID, status.Error)
+			if w.OnErrorWorkFlow != nil {
+				go w.OnErrorWorkFlow.Execute(w.GetLastNodeOutput())
+			}
 			w.Unlock()
 			return w.Error
 		} else if !status.HasStarted {

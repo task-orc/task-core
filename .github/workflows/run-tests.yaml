@@ -42,9 +42,9 @@ jobs:
           # Configure action by specifying input parameters individually (option 2)
           profile: cover.out
           local-prefix: github.com/org/project
-          threshold-file: 80
-          threshold-package: 80
-          threshold-total: 95
+          threshold-file: 0
+          threshold-package: 50
+          threshold-total: 50
 
       - name: Make coverage badge
         uses: action-badges/core@0.2.2

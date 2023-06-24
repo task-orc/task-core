@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  # PRs opened/reopened/synchronised/labeled to develop branch
+  # PRs opened/reopened/synchronised/labeled to main branch
   pull_request:
     branches:
       - main
@@ -34,4 +34,15 @@ jobs:
         run: go build -v ./...
 
       - name: Test
-        run: go test -v ./...
+        run: go test -v ./... -coverprofile=./cover.out
+
+      - name: check test coverage
+        uses: vladopajic/go-test-coverage@v2
+        with:
+
+          # Configure action by specifying input parameters individually (option 2)
+          profile: cover.out
+          local-prefix: github.com/org/project
+          threshold-file: 80
+          threshold-package: 80
+          threshold-total: 95

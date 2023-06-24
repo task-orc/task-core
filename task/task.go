@@ -101,7 +101,13 @@ func (t *Task) Execute(input *DataValue) ExecutionReport {
 	}
 	t.Lock()
 	t.HasStarted = true
-	if input != nil && t.Input != nil {
+	if t.Input != nil && (input == nil || input.Value == nil) {
+		t.Error = fmt.Errorf("expecting an input")
+		t.HasFinished = true
+		t.Unlock()
+		return t.Status()
+	}
+	if t.Input != nil {
 		err := t.Input.Validate(input.Value)
 		if err != nil {
 			t.Error = fmt.Errorf("given input didn't match the expected input definition %w", err)
@@ -134,7 +140,13 @@ func (t *Task) UpdateStatus(update ExecutionData) {
 		return
 	}
 	t.Lock()
-	if update.Output != nil && t.Output != nil && t.Error == nil {
+	if t.Output != nil && update.Error == nil && (update.Output == nil || update.Output.Value == nil) {
+		t.Error = fmt.Errorf("expecting an output")
+		t.HasFinished = true
+		t.Unlock()
+		return
+	}
+	if t.Output != nil && update.Error == nil {
 		err := t.Input.Validate(update.Output.Value)
 		if err != nil {
 			t.Error = fmt.Errorf("given output didn't match the expected output definition %w", err)

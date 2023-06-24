@@ -29,7 +29,7 @@ type simpleWorkflowTestcase struct {
 
 var simpleWorkflowTestcases = []simpleWorkflowTestcase{
 	{
-		index:         0,
+		index:         1,
 		name:          "Simple Workflow Test for OTP",
 		description:   "This is a simple workflow test for OTP",
 		testdataFile:  "testdata/workflow/simple_workflow/1.json",
@@ -37,12 +37,28 @@ var simpleWorkflowTestcases = []simpleWorkflowTestcase{
 		expectedError: nil,
 	},
 	{
-		index:         1,
+		index:         2,
 		name:          "Simple Workflow Test for OTP with data validation error",
 		description:   "This is a simple workflow test where completion doesn't happen due to data validation error",
 		testdataFile:  "testdata/workflow/simple_workflow/2.json",
 		initialInput:  phoneNumberInput,
 		expectedError: task.ErrInvalidDataType,
+	},
+	{
+		index:         3,
+		name:          "Simple Workflow Test for OTP with task and a workflow",
+		description:   "This is a simple workflow test where we have a combination of a task and workflow",
+		testdataFile:  "testdata/workflow/simple_workflow/3.json",
+		initialInput:  phoneNumberInput,
+		expectedError: nil,
+	},
+	{
+		index:         4,
+		name:          "Simple Workflow Test for OTP with nested workflows",
+		description:   "This is a simple workflow test where we have a nested workflow",
+		testdataFile:  "testdata/workflow/simple_workflow/4.json",
+		initialInput:  phoneNumberInput,
+		expectedError: nil,
 	},
 }
 
@@ -75,18 +91,18 @@ func simpleWorkflowTest(t *testing.T) {
 			// read the testdata
 			f, err := os.Open(testcase.testdataFile)
 			if err != nil {
-				t.Errorf("error opening the testdata file for testcase %s %s", testcase.name, err)
+				t.Errorf("error opening the testdata file for testcase %s. %s", testcase.name, err)
 				return
 			}
 			defer f.Close()
 
 			// create the workflow
 			// we will use json parser for getting the task definitions
-			parser := task.NewJsonParser[task.WorkflowNodeDef](f)
+			parser := task.NewJsonParser[task.WorkflowNodesDef](f)
 			siFns := newSimpleAsyncFns(t, ch)
 			wrkflwNodes, err := task.NewWorkflowNodeDefs(parser, siFns.getSimpleAsyncFunctions())
 			if err != nil {
-				t.Errorf("error parsing the testdata file for testcase %s %s", testcase.name, err)
+				t.Errorf("error parsing the testdata file for testcase %s. %s", testcase.name, err)
 				return
 			}
 			//finally create the workflow
@@ -109,15 +125,15 @@ func simpleWorkflowTest(t *testing.T) {
 			}
 			rpt := wrkFlow.Status()
 			if rpt.Error != nil && testcase.expectedError == nil {
-				t.Errorf("error executing the workflow %s %s", wrkFlow.Name, rpt.Error.Error())
+				t.Errorf("error executing the workflow %s. %s", wrkFlow.Name, rpt.Error.Error())
 				return
 			}
 			if rpt.Error == nil && testcase.expectedError != nil {
-				t.Errorf("error executing the workflow %s expected error %s but got nil", wrkFlow.Name, testcase.expectedError.Error())
+				t.Errorf("error executing the workflow %s, expected error %s but got nil", wrkFlow.Name, testcase.expectedError.Error())
 				return
 			}
 			if rpt.Error != nil && testcase.expectedError != nil && !errors.Is(rpt.Error, testcase.expectedError) {
-				t.Errorf("error executing the workflow %s expected error %s but got %s", wrkFlow.Name, testcase.expectedError.Error(), rpt.Error.Error())
+				t.Errorf("error executing the workflow %s, expected error %s but got %s", wrkFlow.Name, testcase.expectedError.Error(), rpt.Error.Error())
 				return
 			}
 			if rpt.HasFinished == false {

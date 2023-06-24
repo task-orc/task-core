@@ -7,7 +7,7 @@ import (
 )
 
 type ParseOutput interface {
-	WorkflowNodeDef
+	WorkflowNodesDef
 }
 
 type Parser[o ParseOutput] interface {
@@ -48,7 +48,8 @@ func (t *taskDefParserWithoutExeFn) UnmarshalJSON(data []byte) error {
 
 type workflowDefParser struct {
 	WorkflowDef `json:",inline"`
-	Type        string `json:"type"`
+	Nodes       []workflowNodeParser `json:"nodes"`
+	Type        string               `json:"type"`
 }
 
 func (w *workflowDefParser) UnmarshalJSON(data []byte) error {
@@ -83,25 +84,63 @@ func (w *workflowNodeParser) UnmarshalJSON(data []byte) error {
 	}
 	if wrkflNode.Type == workflowNodeTypeTask {
 		ts := &taskDefParserWithoutExeFn{}
+		err := ts.UnmarshalJSON(data)
+		if err != nil {
+			return err
+		}
 		w.Value = ts
 		w.Type = workflowNodeTypeTask
-		return ts.UnmarshalJSON(data)
+		return nil
 	}
 	if wrkflNode.Type == workflowNodeTypeWorkflow {
 		wf := &workflowDefParser{}
+		err := wf.UnmarshalJSON(data)
+		if err != nil {
+			return err
+		}
 		w.Value = wf
 		w.Type = workflowNodeTypeWorkflow
-		return wf.UnmarshalJSON(data)
+		return nil
 	}
 	return fmt.Errorf("expected workflow node type, got %s", wrkflNode.Type)
 }
 
-type WorkflowNodeDef []workflowNodeParser
+func (w workflowNodeParser) GetWorkflowNode(exeFns map[string]ExecutionFn) (WorkflowNode, error) {
+	if w.Type == workflowNodeTypeTask {
+		taskDef, ok := w.Value.(*taskDefParserWithoutExeFn)
+		if !ok {
+			return nil, fmt.Errorf("expecting a task def while parsing. got %s", reflect.TypeOf(w.Value))
+		}
 
-func NewWorkflowNodeDefs[P Parser[WorkflowNodeDef]](parser P, exeFns map[string]ExecutionFn) ([]WorkflowNode, error) {
+		exeFn, ok := exeFns[taskDef.ExecFn]
+		if !ok && len(taskDef.ExecFn) > 0 {
+			return nil, fmt.Errorf("couldn't find execfn %s for %s", taskDef.Name, taskDef.ExecFn)
+		}
+		return NewTaskDef(taskDef.Identity, taskDef.Input, taskDef.Output, exeFn).CreateTask(), nil
+	} else if w.Type == workflowNodeTypeWorkflow {
+		wrkflwDef, ok := w.Value.(*workflowDefParser)
+		if !ok {
+			return nil, fmt.Errorf("expecting a workflow def while parsing. got %s", reflect.TypeOf(w.Value))
+		}
+		nodes := make([]WorkflowNode, len(wrkflwDef.Nodes))
+		for _, node := range wrkflwDef.Nodes {
+			wNode, err := node.GetWorkflowNode(exeFns)
+			if err != nil {
+				return nil, fmt.Errorf("error getting workflow node. %w", err)
+			}
+			nodes = append(nodes, wNode)
+		}
+		return NewWorkflowDef(wrkflwDef.Identity, wrkflwDef.InitialInput, wrkflwDef.OnErrorWorkFlow, nodes...).CreateWorkflow(), nil
+	}
+	return nil, fmt.Errorf("expecting a workflow node def while parsing. got %s", reflect.TypeOf(w.Value))
+}
+
+type WorkflowNodesDef []workflowNodeParser
+
+func NewWorkflowNodeDefs[P Parser[WorkflowNodesDef]](parser P, exeFns map[string]ExecutionFn) ([]WorkflowNode, error) {
 	workflowNodeDefsP, err := parser.Parse()
 	if err != nil {
-		return nil, fmt.Errorf("error parsing workflow node def %w", err)
+		return nil, fmt.Errorf("error parsing workflow node def. %w", err)
 	}
 	if workflowNodeDefsP == nil {
 		return nil, fmt.Errorf("workflow node defs is nil")
@@ -109,26 +148,11 @@ func NewWorkflowNodeDefs[P Parser[WorkflowNodeDef]](parser P, exeFns map[string]
 	workfowNodeDefVs := *workflowNodeDefsP
 	result := make([]WorkflowNode, len(workfowNodeDefVs))
 	for i, workfowNodeDef := range workfowNodeDefVs {
-		if workfowNodeDef.Type == workflowNodeTypeTask {
-			taskDef, ok := workfowNodeDef.Value.(*taskDefParserWithoutExeFn)
-			if !ok {
-				return nil, fmt.Errorf("expecting a task def while parsing. got %s", reflect.TypeOf(workfowNodeDef.Value))
-			}
-
-			exeFn, ok := exeFns[taskDef.ExecFn]
-			if !ok && len(taskDef.ExecFn) > 0 {
-				return nil, fmt.Errorf("couldn't find execfn %s for %s at index %d", taskDef.Name, taskDef.ExecFn, i)
-			}
-			result[i] = NewTaskDef(taskDef.Identity, taskDef.Input, taskDef.Output, exeFn).CreateTask()
-		} else if workfowNodeDef.Type == workflowNodeTypeWorkflow {
-			wrkflwDef, ok := workfowNodeDef.Value.(*workflowDefParser)
-			if !ok {
-				return nil, fmt.Errorf("expecting a workflow def while parsing. got %s", reflect.TypeOf(workfowNodeDef.Value))
-			}
-			result[i] = NewWorkflowDef(wrkflwDef.Identity, wrkflwDef.InitialInput, wrkflwDef.OnErrorWorkFlow, wrkflwDef.Nodes...).CreateWorkflow()
-		} else {
-			return nil, fmt.Errorf("expecting a workflow node def while parsing. got %s", reflect.TypeOf(workfowNodeDef.Value))
+		workflowNode, err := workfowNodeDef.GetWorkflowNode(exeFns)
+		if err != nil {
+			return nil, fmt.Errorf("error getting workflow node at index %d. %w", i, err)
 		}
+		result[i] = workflowNode
 	}
 
 	return result, nil

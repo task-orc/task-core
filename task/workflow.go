@@ -8,9 +8,8 @@ import (
 type WorkflowDef struct {
 	Identity        `json:",inline"`
 	InitialInput    *DataValue     `json:"initialInput"`
-	Nodes           []WorkflowNode `json:"nodes"`
+	Nodes           []WorkflowNode `json:"-"`
 	OnErrorWorkFlow *Workflow      `json:"onErrorWorkflow"`
-	Error           string         `json:"error"`
 }
 
 func NewWorkflowDef(identity Identity, initialInput *DataValue, errorWorkflow *Workflow, nodes ...WorkflowNode) *WorkflowDef {
@@ -122,6 +121,9 @@ func (w *Workflow) ShouldMoveForward() bool {
 }
 
 func (w *Workflow) GetLastNodeOutput() *DataValue {
+	if w.currentNodeIndex < 0 {
+		return nil
+	}
 	if w.currentNodeIndex == 0 {
 		return w.InitialInput
 	}

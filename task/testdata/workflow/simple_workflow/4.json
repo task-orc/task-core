@@ -1,0 +1,108 @@
+[
+  {
+    "id": "task_1",
+    "type": "task",
+    "name": "Send Otp",
+    "description": "Sending OTP to the given phone number",
+    "execFn": "send_otp",
+    "input": {
+      "fields": [
+        {
+          "field": "phoneNumber",
+          "isRequired": true,
+          "type": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "output": {
+      "fields": [
+        {
+          "field": "phoneNumber",
+          "isRequired": true,
+          "type": {
+            "type": "string"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "workflow_1",
+    "type": "workflow",
+    "name": "Verify OTP and Create Account or Login",
+    "description": "Combined workflow of verifying otp and creating account or login",
+    "nodes": [
+      {
+        "id": "task_2",
+        "type": "task",
+        "name": "Verify Otp",
+        "description": "verifying OTP send to the given phone number",
+        "execFn": "verify_otp",
+        "input": {
+          "fields": [
+            {
+              "field": "phoneNumber",
+              "isRequired": true,
+              "type": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "output": {
+          "fields": [
+            {
+              "field": "phoneNumber",
+              "isRequired": true,
+              "type": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "verified",
+              "isRequired": true,
+              "type": {
+                "type": "bool"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "workflow_2",
+        "type": "workflow",
+        "name": "Create Account or Login",
+        "description": "workflow of creating account or login",
+        "nodes": [
+          {
+            "id": "task_3",
+            "type": "task",
+            "name": "Login or Register User",
+            "description": "login and register the user if verification was successful",
+            "execFn": "login_or_register_user",
+            "input": {
+              "fields": [
+                {
+                  "field": "phoneNumber",
+                  "isRequired": true,
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "field": "verified",
+                  "isRequired": true,
+                  "type": {
+                    "type": "bool"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

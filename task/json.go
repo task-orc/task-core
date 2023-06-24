@@ -20,7 +20,7 @@ func (j JsonParser[O]) Parse() (*O, error) {
 	result := new(O)
 	err := json.NewDecoder(j.source).Decode(result)
 	if err != nil {
-		return nil, fmt.Errorf("error json decoding the ouput %w", err)
+		return nil, fmt.Errorf("error json decoding the output %w", err)
 	}
 	return result, nil
 }

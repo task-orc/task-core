@@ -82,29 +82,24 @@ func simpleWorkflowTest(t *testing.T) {
 
 			// create the workflow
 			// we will use json parser for getting the task definitions
-			parser := task.NewJsonParser[task.TaskDefs](f)
+			parser := task.NewJsonParser[task.WorkflowNodeDef](f)
 			siFns := newSimpleAsyncFns(t, ch)
-			taskDefs, err := task.NewTaskDefs(parser, siFns.getSimpleAsyncFunctions())
+			wrkflwNodes, err := task.NewWorkflowNodeDefs(parser, siFns.getSimpleAsyncFunctions())
 			if err != nil {
 				t.Errorf("error parsing the testdata file for testcase %s %s", testcase.name, err)
 				return
 			}
-			// will convert the task defs to workflow nodes
-			wrkflwNodes := make([]task.WorkflowNode, len(taskDefs))
-			for i, taskDef := range taskDefs {
-				wrkflwNodes[i] = taskDef.CreateTask()
-			}
 			//finally create the workflow
-			wrkFlow := task.NewWorkflow(task.Identity{
+			wrkFlow := task.NewWorkflowDef(task.Identity{
 				Name:        testcase.name,
 				Description: testcase.description,
-			}, nil, wrkflwNodes...)
+			}, testcase.initialInput, nil, wrkflwNodes...).CreateWorkflow()
 			siFns.updateWorkflowId(wrkFlow.ID)
 			t.Logf("parsed and executing the workflow %s", wrkFlow.Name)
 
 			// execute the workflow
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			doneCh := wrkflowExe.run(wrkFlow, testcase.initialInput)
+			doneCh := wrkflowExe.run(wrkFlow)
 			defer cancel()
 			select {
 			case <-ctx.Done():
@@ -164,13 +159,13 @@ func (w *workflowExecutioner) listen(stop <-chan bool) chan<- task.ExecutionData
 	return ch
 }
 
-func (w *workflowExecutioner) run(wrkFlow *task.Workflow, initialInput *task.DataValue) chan struct{} {
+func (w *workflowExecutioner) run(wrkFlow *task.Workflow) chan struct{} {
 	w.Lock()
 	defer w.Unlock()
 	w.wrkFlows[wrkFlow.ID] = wrkFlow
 	ch := make(chan struct{})
 	go func() {
-		rpt := wrkFlow.Execute(initialInput)
+		rpt := wrkFlow.Execute(nil)
 		for !rpt.HasFinished {
 			err := wrkFlow.Run()
 			if err != nil {

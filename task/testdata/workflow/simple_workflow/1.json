@@ -1,6 +1,7 @@
 [
     {
         "id": "task_1",
+        "type": "task",
         "name": "Send Otp",
         "description": "Sending OTP to the given phone number",
         "execFn": "send_otp",
@@ -29,6 +30,7 @@
     },
     {
         "id": "task_2",
+        "type": "task",
         "name": "Verify Otp",
         "description": "verifying OTP send to the given phone number",
         "execFn": "verify_otp",
@@ -64,6 +66,7 @@
     },
     {
         "id": "task_3",
+        "type": "task",
         "name": "Login or Register User",
         "description": "login and register the user if verification was successful",
         "execFn": "login_or_register_user",

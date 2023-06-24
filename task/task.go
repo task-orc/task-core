@@ -41,7 +41,7 @@ type TaskDef struct {
 	Output   *DataObjectDef `json:"output"`
 }
 
-func NewTaskDef(identity Identity, input, output *DataObjectDef, execFn ExecutionFn) TaskDef {
+func NewTaskDef(identity Identity, input, output *DataObjectDef, execFn ExecutionFn) *TaskDef {
 	taskDef := TaskDef{
 		Identity: identity,
 		Input:    input,
@@ -52,7 +52,7 @@ func NewTaskDef(identity Identity, input, output *DataObjectDef, execFn Executio
 		taskDef.Identity = taskDef.GenerateID("taskDef_")
 	}
 
-	return taskDef
+	return &taskDef
 }
 
 func (t TaskDef) CreateTask() *Task {
@@ -117,6 +117,9 @@ func (t *Task) Execute(input *DataValue) ExecutionReport {
 	}
 	t.Unlock()
 	if t.Error != nil {
+		return t.Status()
+	}
+	if t.execFn == nil {
 		return t.Status()
 	}
 	exeData := t.execFn(input)

@@ -5,38 +5,56 @@ import (
 	"sync"
 )
 
+type WorkflowDef struct {
+	Identity        `json:",inline"`
+	InitialInput    *DataValue     `json:"initialInput"`
+	Nodes           []WorkflowNode `json:"nodes"`
+	OnErrorWorkFlow *Workflow      `json:"onErrorWorkflow"`
+	Error           string         `json:"error"`
+}
+
+func NewWorkflowDef(identity Identity, initialInput *DataValue, errorWorkflow *Workflow, nodes ...WorkflowNode) *WorkflowDef {
+	if len(identity.ID) == 0 {
+		identity = identity.GenerateID("workflow_")
+	}
+	return &WorkflowDef{
+		Identity:        identity,
+		InitialInput:    initialInput,
+		Nodes:           nodes,
+		OnErrorWorkFlow: errorWorkflow,
+	}
+}
+
+func (w WorkflowDef) CreateWorkflow() *Workflow {
+	result := &Workflow{
+		Identity:         w.Identity.GenerateID("workflow_"),
+		InitialInput:     w.InitialInput,
+		Nodes:            w.Nodes,
+		OnErrorWorkFlow:  w.OnErrorWorkFlow,
+		currentNodeIndex: -1,
+		nodeMap:          make(map[string]int, len(w.Nodes)),
+	}
+	for i, node := range w.Nodes {
+		result.nodeMap[node.GetInfo().ID] = i
+	}
+	return result
+}
+
 type Workflow struct {
 	Identity
 	InitialInput     *DataValue
 	Nodes            []WorkflowNode
 	OnErrorWorkFlow  *Workflow
-	CurrentNodeIndex int
+	currentNodeIndex int
 	Error            error
 	nodeMap          map[string]int
 	sync.Mutex
 }
 
-func NewWorkflow(identity Identity, errorWorkflow *Workflow, nodes ...WorkflowNode) *Workflow {
-	workflowMap := make(map[string]int, len(nodes))
-	for i, node := range nodes {
-		workflowMap[node.GetInfo().ID] = i
-	}
-	if len(identity.ID) == 0 {
-		identity = identity.GenerateID("workflow_")
-	}
-	return &Workflow{
-		Identity:         identity,
-		Nodes:            nodes,
-		OnErrorWorkFlow:  errorWorkflow,
-		CurrentNodeIndex: -1,
-		nodeMap:          workflowMap,
-	}
-}
-
 func (w *Workflow) Status() ExecutionReport {
 	return ExecutionReport{
-		HasStarted:  w.CurrentNodeIndex >= 0,
-		HasFinished: w.Error != nil || w.CurrentNodeIndex >= len(w.Nodes),
+		HasStarted:  w.currentNodeIndex >= 0,
+		HasFinished: w.Error != nil || w.currentNodeIndex >= len(w.Nodes),
 		Input:       w.InitialInput,
 		ExecutionData: ExecutionData{
 			Output: w.GetLastNodeOutput(),
@@ -48,8 +66,10 @@ func (w *Workflow) Status() ExecutionReport {
 
 func (w *Workflow) Execute(input *DataValue) ExecutionReport {
 	w.Lock()
-	w.InitialInput = input
-	w.CurrentNodeIndex = 0
+	if w.InitialInput == nil && input != nil {
+		w.InitialInput = input
+	}
+	w.currentNodeIndex = 0
 	w.Unlock()
 	go w.Run()
 	return w.Status()
@@ -63,12 +83,12 @@ func (w *Workflow) UpdateStatus(update ExecutionData) {
 
 func (w *Workflow) Run() error {
 	for w.ShouldMoveForward() {
-		node := w.Nodes[w.CurrentNodeIndex]
+		node := w.Nodes[w.currentNodeIndex]
 		status := node.Status()
 		if status.HasFinished && status.Error == nil {
 			// Task has finished successfully. Move to next task
 			w.Lock()
-			w.CurrentNodeIndex++
+			w.currentNodeIndex++
 			w.Unlock()
 			continue
 		} else if status.Error != nil {
@@ -92,21 +112,21 @@ func (w *Workflow) Run() error {
 }
 
 func (w *Workflow) ShouldMoveForward() bool {
-	if w.CurrentNodeIndex >= len(w.Nodes) {
+	if w.currentNodeIndex >= len(w.Nodes) {
 		return false
 	}
-	if w.CurrentNodeIndex < 0 {
+	if w.currentNodeIndex < 0 {
 		return false
 	}
 	return true
 }
 
 func (w *Workflow) GetLastNodeOutput() *DataValue {
-	if w.CurrentNodeIndex == 0 {
+	if w.currentNodeIndex == 0 {
 		return w.InitialInput
 	}
-	if w.CurrentNodeIndex > len(w.Nodes) {
+	if w.currentNodeIndex > len(w.Nodes) {
 		return nil
 	}
-	return w.Nodes[w.CurrentNodeIndex-1].Status().Output
+	return w.Nodes[w.currentNodeIndex-1].Status().Output
 }

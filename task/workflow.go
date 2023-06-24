@@ -36,7 +36,7 @@ func NewWorkflow(identity Identity, errorWorkflow *Workflow, nodes ...WorkflowNo
 func (w *Workflow) Status() ExecutionReport {
 	return ExecutionReport{
 		HasStarted:  w.CurrentNodeIndex >= 0,
-		HasFinished: w.CurrentNodeIndex >= len(w.Nodes),
+		HasFinished: w.Error != nil || w.CurrentNodeIndex >= len(w.Nodes),
 		Input:       w.InitialInput,
 		ExecutionData: ExecutionData{
 			Output: w.GetLastNodeOutput(),
@@ -74,7 +74,7 @@ func (w *Workflow) Run() error {
 		} else if status.Error != nil {
 			// Task has failed. Return error
 			w.Lock()
-			w.Error = fmt.Errorf("error in node execution %s: %w", node.GetInfo().ID, status.Error)
+			w.Error = fmt.Errorf("error in node execution %s - %s: %w", node.GetInfo().ID, node.GetInfo().Name, status.Error)
 			if w.OnErrorWorkFlow != nil {
 				go w.OnErrorWorkFlow.Execute(w.GetLastNodeOutput())
 			}

@@ -2,6 +2,8 @@ package task_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -17,20 +19,30 @@ func TestWorkflow(t *testing.T) {
 }
 
 type simpleWorkflowTestcase struct {
-	index        int
-	name         string
-	description  string
-	testdataFile string
-	initialInput *task.DataValue
+	index         int
+	name          string
+	description   string
+	testdataFile  string
+	initialInput  *task.DataValue
+	expectedError error
 }
 
 var simpleWorkflowTestcases = []simpleWorkflowTestcase{
 	{
-		index:        0,
-		name:         "Simple Workflow Test for OTP",
-		description:  "This is a simple workflow test for OTP",
-		testdataFile: "testdata/workflow/simple_workflow/1.json",
-		initialInput: phoneNumberInput,
+		index:         0,
+		name:          "Simple Workflow Test for OTP",
+		description:   "This is a simple workflow test for OTP",
+		testdataFile:  "testdata/workflow/simple_workflow/1.json",
+		initialInput:  phoneNumberInput,
+		expectedError: nil,
+	},
+	{
+		index:         1,
+		name:          "Simple Workflow Test for OTP with data validation error",
+		description:   "This is a simple workflow test where completion doesn't happen due to data validation error",
+		testdataFile:  "testdata/workflow/simple_workflow/2.json",
+		initialInput:  phoneNumberInput,
+		expectedError: task.ErrInvalidDataType,
 	},
 }
 
@@ -51,7 +63,7 @@ func simpleWorkflowTest(t *testing.T) {
 
 	// run the testcases
 	for _, testcase := range simpleWorkflowTestcases {
-		t.Run(testcase.name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d %s", testcase.index, testcase.name), func(t *testing.T) {
 			/**
 			 * read the testdata
 			 * create the workflow
@@ -101,8 +113,16 @@ func simpleWorkflowTest(t *testing.T) {
 				break
 			}
 			rpt := wrkFlow.Status()
-			if rpt.Error != nil {
+			if rpt.Error != nil && testcase.expectedError == nil {
 				t.Errorf("error executing the workflow %s %s", wrkFlow.Name, rpt.Error.Error())
+				return
+			}
+			if rpt.Error == nil && testcase.expectedError != nil {
+				t.Errorf("error executing the workflow %s expected error %s but got nil", wrkFlow.Name, testcase.expectedError.Error())
+				return
+			}
+			if rpt.Error != nil && testcase.expectedError != nil && !errors.Is(rpt.Error, testcase.expectedError) {
+				t.Errorf("error executing the workflow %s expected error %s but got %s", wrkFlow.Name, testcase.expectedError.Error(), rpt.Error.Error())
 				return
 			}
 			if rpt.HasFinished == false {

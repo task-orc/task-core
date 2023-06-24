@@ -35,7 +35,7 @@
         "input": {
             "fields": [
                 {
-                    "field": "phoneNumber",
+                    "field": "otp",
                     "isRequired": true,
                     "type": {
                         "type": "string"
@@ -53,7 +53,7 @@
                     }
                 },
                 {
-                    "name": "verified",
+                    "field": "verified",
                     "isRequired": true,
                     "type": {
                         "type": "bool"

@@ -109,8 +109,9 @@ type DataField struct {
 
 func (d DataField) Copy() DataField {
 	return DataField{
-		Field: d.Field,
-		Type:  d.Type.Copy(),
+		Field:      d.Field,
+		Type:       d.Type.Copy(),
+		IsRequired: d.IsRequired,
 	}
 }
 
@@ -168,22 +169,22 @@ func (d DataType) ValidatePrimitive(value interface{}) error {
 	case DataTypeString:
 		_, ok := value.(string)
 		if !ok {
-			return ErrInvalidDataType
+			return fmt.Errorf("expected string, got %+v %w", value, ErrInvalidDataType)
 		}
 	case DataTypeInt:
 		_, ok := value.(int)
 		if !ok {
-			return ErrInvalidDataType
+			return fmt.Errorf("expected integer, got %+v %w", value, ErrInvalidDataType)
 		}
 	case DataTypeFloat:
 		_, ok := value.(float64)
 		if !ok {
-			return ErrInvalidDataType
+			return fmt.Errorf("expected float, got %+v %w", value, ErrInvalidDataType)
 		}
 	case DataTypeBool:
 		_, ok := value.(bool)
 		if !ok {
-			return ErrInvalidDataType
+			return fmt.Errorf("expected boolean, got %+v %w", value, ErrInvalidDataType)
 		}
 	}
 	return nil
@@ -200,7 +201,7 @@ func (d DataType) ValidateObject(value interface{}) error {
 	for _, field := range d.ObjectDef.Fields {
 		if field.IsRequired {
 			if _, ok := ma[field.Field]; !ok {
-				return ErrInvalidDataType
+				return fmt.Errorf("required field %s not found %w", field.Field, ErrInvalidDataType)
 			}
 		}
 		if err := field.Type.Validate(ma[field.Field]); err != nil {

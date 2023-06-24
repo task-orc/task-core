@@ -101,7 +101,7 @@ func (t *Task) Execute(input *DataValue) ExecutionReport {
 	}
 	t.Lock()
 	t.HasStarted = true
-	if input == nil && t.Input != nil {
+	if input != nil && t.Input != nil {
 		err := t.Input.Validate(input.Value)
 		if err != nil {
 			t.Error = fmt.Errorf("given input didn't match the expected input definition %w", err)

@@ -195,7 +195,7 @@ func simpleWorkflowTest(t *testing.T) {
 
 			// create the workflow
 			// we will use json parser for getting the task definitions
-			parser := task.NewJsonParser[task.WorkflowNodesDef](f)
+			parser := task.NewJsonParser(f)
 			siFns := newSimpleAsyncFns(t, ch)
 			wrkflwNodes, err := task.NewWorkflowNodeDefs(parser, siFns.getSimpleAsyncFunctions())
 			if err != nil && !testcase.shouldNotParse {

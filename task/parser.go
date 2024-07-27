@@ -120,10 +120,22 @@ func (w *workflowDefParser) UnmarshalBSON(data []byte) error {
 	return nil
 }
 
+type Value interface{}
+
 // workflowNodeParser is a wrapper for workflowNode
 type workflowNodeParser struct {
-	Value interface{}      `json:",inline" bson:",inline"`
+	Value `json:"" bson:",inline"`
 	Type  workflowNodeType `json:"type" bson:"type"`
+}
+
+func (w workflowNodeParser) MarshalJSON() ([]byte, error) {
+	if w.Type == workflowNodeTypeTask {
+		return json.Marshal(w.Value)
+	}
+	if w.Type == workflowNodeTypeWorkflow {
+		return json.Marshal(w.Value)
+	}
+	return nil, fmt.Errorf("%w, got %s", ErrUnsupportedWorkflowNode, w.Type)
 }
 
 // UnmarshalJSON is a custom unmarshaler for workflowNodeParser

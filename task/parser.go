@@ -168,7 +168,7 @@ func (w *workflowNodeParser) UnmarshalBSON(data []byte) error {
 	wrkflNode := struct {
 		Type workflowNodeType `bson:"type"`
 	}{}
-	err := json.Unmarshal(data, &wrkflNode)
+	err := bson.Unmarshal(data, &wrkflNode)
 	if err != nil {
 		return err
 	}

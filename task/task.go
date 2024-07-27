@@ -40,6 +40,11 @@ type TaskDef struct {
 	execFn   ExecutionFn    `json:"-" bson:"-"`
 	Input    *DataObjectDef `json:"input" bson:"input"`
 	Output   *DataObjectDef `json:"output" bson:"output"`
+	Control  []Control      `json:"control" bson:"control"`
+}
+
+type Control struct {
+	Target string `json:"target" bson:"target"`
 }
 
 func NewTaskDef(identity Identity, input, output *DataObjectDef, execFn ExecutionFn) *TaskDef {

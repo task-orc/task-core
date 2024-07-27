@@ -81,7 +81,7 @@ func (d DataTypeBasic) IsArray() bool {
 //		},
 //	}
 type DataObjectDef struct {
-	Fields []DataField `json:"fields"`
+	Fields []DataField `json:"fields" bson:"fields"`
 }
 
 // CreateDataValue creates a DataValue object with the DataObjectDef with nil value
@@ -106,9 +106,9 @@ func (d DataObjectDef) Copy() *DataObjectDef {
 }
 
 type DataField struct {
-	Field      string   `json:"field"`
-	IsRequired bool     `json:"isRequired"`
-	Type       DataType `json:"type"`
+	Field      string   `json:"field" bson:"field"`
+	IsRequired bool     `json:"isRequired" bson:"isRequired"`
+	Type       DataType `json:"type" bson:"type"`
 }
 
 // Copy will do a deep copy of the DataField
@@ -121,7 +121,7 @@ func (d DataField) Copy() DataField {
 }
 
 type DataArrayDef struct {
-	TypeDef DataType `json:"typeDef"`
+	TypeDef DataType `json:"typeDef" bson:"typeDef"`
 }
 
 // Copy will do a deep copy of the DataArrayDef
@@ -132,9 +132,9 @@ func (d DataArrayDef) Copy() *DataArrayDef {
 }
 
 type DataType struct {
-	Type      DataTypeBasic  `json:"type"`
-	ArrayDef  *DataArrayDef  `json:"arrayDef"`
-	ObjectDef *DataObjectDef `json:"objectDef"`
+	Type      DataTypeBasic  `json:"type" bson:"type"`
+	ArrayDef  *DataArrayDef  `json:"arrayDef" bson:"arrayDef"`
+	ObjectDef *DataObjectDef `json:"objectDef" bson:"objectDef"`
 }
 
 // Copy will do a deep copy of the DataType

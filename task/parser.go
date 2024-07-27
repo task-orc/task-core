@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type ParseOutput interface {
@@ -40,6 +42,25 @@ func (t *taskDefParserWithoutExeFn) UnmarshalJSON(data []byte) error {
 		ExecFn  string `json:"execFn"`
 	}{}
 	err := json.Unmarshal(data, &tsk)
+	if err != nil {
+		return err
+	}
+	if tsk.Type != string(workflowNodeTypeTask) {
+		return fmt.Errorf("expected task type, got %s", tsk.Type)
+	}
+	t.TaskDef = tsk.TaskDef
+	t.Type = tsk.Type
+	t.ExecFn = tsk.ExecFn
+	return nil
+}
+
+func (t *taskDefParserWithoutExeFn) UnmarshalBSON(data []byte) error {
+	tsk := struct {
+		TaskDef `bson:",inline"`
+		Type    string `bson:"type"`
+		ExecFn  string `bson:"execFn"`
+	}{}
+	err := bson.Unmarshal(data, &tsk)
 	if err != nil {
 		return err
 	}

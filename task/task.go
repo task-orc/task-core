@@ -36,10 +36,10 @@ import (
 //		},
 //	}
 type TaskDef struct {
-	Identity `json:",inline"`
-	execFn   ExecutionFn    `json:"-"`
-	Input    *DataObjectDef `json:"input"`
-	Output   *DataObjectDef `json:"output"`
+	Identity `json:",inline" bson:",inline"`
+	execFn   ExecutionFn    `json:"-" bson:"-"`
+	Input    *DataObjectDef `json:"input" bson:"input"`
+	Output   *DataObjectDef `json:"output" bson:"output"`
 }
 
 func NewTaskDef(identity Identity, input, output *DataObjectDef, execFn ExecutionFn) *TaskDef {

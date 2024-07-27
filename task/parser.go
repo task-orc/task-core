@@ -29,9 +29,9 @@ const (
 // Concrete implementation for parsing task defnition
 // task is created from the instance of the task def
 type taskDefParserWithoutExeFn struct {
-	TaskDef `json:",inline"`
-	Type    string `json:"type"`
-	ExecFn  string `json:"execFn"`
+	TaskDef `json:",inline" bson:",inline"`
+	Type    string `json:"type" bson:"type"`
+	ExecFn  string `json:"execFn" bson:"execFn"`
 }
 
 // UnmarshalJSON is a custom unmarshaler for taskDefParserWithoutExeFn
@@ -54,6 +54,7 @@ func (t *taskDefParserWithoutExeFn) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// UnmarshalBSON is a customer unmarshaler for taskDefParserWithoutExeFn
 func (t *taskDefParserWithoutExeFn) UnmarshalBSON(data []byte) error {
 	tsk := struct {
 		TaskDef `bson:",inline"`
@@ -76,9 +77,9 @@ func (t *taskDefParserWithoutExeFn) UnmarshalBSON(data []byte) error {
 // Concrete implementation for parsing worflow defnition
 // workflow are created from the instance of the workflow def
 type workflowDefParser struct {
-	WorkflowDef `json:",inline"`
-	Nodes       []workflowNodeParser `json:"nodes"`
-	Type        string               `json:"type"`
+	WorkflowDef `json:",inline" bson:",inline"`
+	Nodes       []workflowNodeParser `json:"nodes" bson:"nodes"`
+	Type        string               `json:"type" bson:"type"`
 }
 
 func (w *workflowDefParser) UnmarshalJSON(data []byte) error {
@@ -100,10 +101,29 @@ func (w *workflowDefParser) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (w *workflowDefParser) UnmarshalBSON(data []byte) error {
+	wrk := struct {
+		WorkflowDef `bson:",inline"`
+		Nodes       []workflowNodeParser `bson:"nodes"`
+		Type        string               `bson:"type"`
+	}{}
+	err := bson.Unmarshal(data, &wrk)
+	if err != nil {
+		return err
+	}
+	if wrk.Type != string(workflowNodeTypeWorkflow) {
+		return fmt.Errorf("expected workflow type, got %s", wrk.Type)
+	}
+	w.WorkflowDef = wrk.WorkflowDef
+	w.Type = wrk.Type
+	w.Nodes = wrk.Nodes
+	return nil
+}
+
 // workflowNodeParser is a wrapper for workflowNode
 type workflowNodeParser struct {
-	Value interface{}      `json:",inline"`
-	Type  workflowNodeType `json:"type"`
+	Value interface{}      `json:",inline" bson:",inline"`
+	Type  workflowNodeType `json:"type" bson:"type"`
 }
 
 // UnmarshalJSON is a custom unmarshaler for workflowNodeParser
@@ -133,6 +153,40 @@ func (w *workflowNodeParser) UnmarshalJSON(data []byte) error {
 		// then we unmarshal to the concrete type - workflow
 		wf := &workflowDefParser{}
 		err := wf.UnmarshalJSON(data)
+		if err != nil {
+			return err
+		}
+		w.Value = wf
+		w.Type = workflowNodeTypeWorkflow
+		return nil
+	}
+	return fmt.Errorf("%w, got %s", ErrUnsupportedWorkflowNode, wrkflNode.Type)
+}
+
+func (w *workflowNodeParser) UnmarshalBSON(data []byte) error {
+	// ew first unmarshal to understand the type
+	wrkflNode := struct {
+		Type workflowNodeType `bson:"type"`
+	}{}
+	err := json.Unmarshal(data, &wrkflNode)
+	if err != nil {
+		return err
+	}
+	if wrkflNode.Type == workflowNodeTypeTask {
+		// then we unmarshal to the concrete type - task
+		ts := &taskDefParserWithoutExeFn{}
+		err := ts.UnmarshalBSON(data)
+		if err != nil {
+			return err
+		}
+		w.Value = ts
+		w.Type = workflowNodeTypeTask
+		return nil
+	}
+	if wrkflNode.Type == workflowNodeTypeWorkflow {
+		// then we unmarshal to the concrete type - workflow
+		wf := &workflowDefParser{}
+		err := wf.UnmarshalBSON(data)
 		if err != nil {
 			return err
 		}

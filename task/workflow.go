@@ -9,10 +9,10 @@ import (
 // WorkflowDef is a struct that represents the workflow definition
 // A workflow is created as an instance of the workflow def
 type WorkflowDef struct {
-	Identity        `json:",inline"`
-	InitialInput    *DataValue `json:"initialInput"`
+	Identity        `json:",inline" bson:",inline"`
+	InitialInput    *DataValue `json:"initialInput" bson:"initialInput"`
 	nodes           []WorkflowNode
-	OnErrorWorkFlow *Workflow `json:"onErrorWorkflow"`
+	OnErrorWorkFlow *Workflow `json:"onErrorWorkflow" bson:"onErrorWorkflow"`
 }
 
 func NewWorkflowDef(identity Identity, initialInput *DataValue, errorWorkflow *Workflow, nodes ...WorkflowNode) *WorkflowDef {
